@@ -1,0 +1,74 @@
+{
+  "name": "dsh-vision-skill",
+  "version": "0.4.4",
+  "description": "DSH standard vision skill: Qwen dynamic-resolution preprocessing + OpenAI-compatible VLM chain with failover/429 backoff, structured evidence mode, local tesseract-first long-screenshot OCR, paste-to-path (no framework patch). 8 tools + runtime skill.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "client.js",
+    "scripts/vision.py",
+    "templates",
+    "cordis.patch.yml",
+    "SKILL.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugins",
+    "vision",
+    "ocr",
+    "grounding",
+    "text-only-llm",
+    "agent-skills"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DDDFXYqiming/dsh-vision-skill.git"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.0-rc <5",
+    "@deepseek-ai/dsh-credentials": "*",
+    "@deepseek-ai/dsh-tools": "*",
+    "@deepseek-ai/schemastery": "*",
+    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.0-rc.6"
+  },
+  "scripts": {
+    "check": "node --check lib/index.js && node --check client.js && python -m py_compile scripts/vision.py",
+    "test": "python -m unittest discover -s tests -v && node --test tests/plugin.test.mjs tests/client.test.mjs"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-client-runtime": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-conversation": {
+      "optional": true
+    }
+  }
+}

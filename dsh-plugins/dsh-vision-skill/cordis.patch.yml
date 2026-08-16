@@ -1,0 +1,6 @@
+# dsh-vision-skill bundle patch：安装进 profile 时贡献这一层。
+# 与官方 publish 教程的 bundle 约定一致：插件行按包名引用，由 Node 解析已安装代码。
+# 用户可在 profile 自己的 cordis.patch.yml 中按 id 覆盖 config（后写者胜，整行替换 config）。
+- insert:
+    - id: vision-skill
+      name: 'dsh-vision-skill'
