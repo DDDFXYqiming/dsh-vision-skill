@@ -23,6 +23,14 @@ window.__ModuleLoader__.load({
     const PASTE_ROUTE = '/dsh-vision-skill/paste'
     const SOURCE = 'dsh-vision-pasted-image'
     const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+    // sessionStorage 镜像前缀：发送时把 ref -> {label, absolutePath} 落一份，
+    // 页面刷新/插件热重载导致内存 records 丢失时，serialize 可据此找回已落盘的图片。
+    const MIRROR_KEY_PREFIX = 'dsh-vision-skill:paste:'
+    // 撤销/重做会让 chip 短暂“离开”草稿（occurrences 里消失）随后又回来；
+    // 这个窗口内不能清理记录，否则重做回来后 ref 失联，发送时必然报错。
+    const PRUNE_GRACE_MS = 10 * 60 * 1000
+    // records 内存兜底上限：单标签页最多保留 128 个粘贴记录，超出只清最老的死记录。
+    const MAX_RECORDS = 128
     let fallbackId = 0
 
     function id() {
@@ -153,6 +161,28 @@ window.__ModuleLoader__.load({
       return `[pasted image: ${label}] 请用 vision_analyze 读取: ${JSON.stringify(record.absolutePath)}`
     }
 
+    function mirrorGet(ref) {
+      try {
+        const raw = globalThis.sessionStorage?.getItem(MIRROR_KEY_PREFIX + ref)
+        if (!raw) return undefined
+        const data = JSON.parse(raw)
+        if (data && typeof data.label === 'string' && typeof data.absolutePath === 'string' && data.absolutePath !== '') {
+          return data
+        }
+        return undefined
+      } catch {
+        return undefined
+      }
+    }
+
+    function mirrorSave(ref, data) {
+      try {
+        globalThis.sessionStorage?.setItem(MIRROR_KEY_PREFIX + ref, JSON.stringify(data))
+      } catch {
+        // sessionStorage 不可用（隐私模式/测试环境）时静默降级
+      }
+    }
+
     function PasteImageController(ctx) {
       this.ctx = ctx
       this.records = new Map() // ref -> { file, sessionId, label, status, absolutePath, inflight, error }
@@ -170,8 +200,9 @@ window.__ModuleLoader__.load({
         onPick: () => undefined,
         codec: {
           clipboardText: (ref) => {
-            const record = controller.records.get(ref)
-            return record ? `[pasted image: ${record.label}]` : `[pasted image: ${ref}]`
+            const record = controller.records.get(ref) ?? mirrorGet(ref)
+            const label = record?.label
+            return `[pasted image: ${label || ref}]`
           },
           serialize: (ref, signal) => controller.serialize(ref, signal),
         },
@@ -201,12 +232,41 @@ window.__ModuleLoader__.load({
     }
 
     PasteImageController.prototype.serialize = async function serialize(ref, signal) {
-      const record = this.records.get(ref)
+      let record = this.records.get(ref)
+      if (record === undefined) record = this.restoreRecord(ref)
       if (record === undefined) {
-        throw new Error('pasted image is no longer available in this browser tab')
+        // 记录已不在（页面刷新/插件热重载清空了内存表，且该图从未上传成功）——
+        // 原始字节只存在于此前的标签页内存里，无法找回，直接告诉用户怎么处理。
+        throw new Error(
+          '这张粘贴图片在当前浏览器标签页已失效：原始字节只存在于此前的页面内存里，无法找回。' +
+          '请删除该图片并重新粘贴后再发送。',
+        )
       }
       await this.ensureUploaded(record, signal)
+      if (record.absolutePath !== undefined) {
+        mirrorSave(ref, { label: record.label, absolutePath: record.absolutePath })
+      }
       return serializeText(record)
+    }
+
+    /**
+     * 从 sessionStorage 镜像恢复一个已落盘的粘贴记录。
+     * 仅在镜像里已有 absolutePath（说明图片曾上传成功）时才算可恢复；
+     * 只有 label 没有路径的镜像说明字节从未上传，无法重建。
+     */
+    PasteImageController.prototype.restoreRecord = function restoreRecord(ref) {
+      const data = mirrorGet(ref)
+      if (data === undefined) return undefined
+      return {
+        label: data.label,
+        absolutePath: data.absolutePath,
+        status: 'copied',
+        file: undefined,
+        sessionId: undefined,
+        inflight: undefined,
+        error: undefined,
+        lastAlive: Date.now(),
+      }
     }
 
     PasteImageController.prototype.trackInput = function trackInput(input) {
@@ -226,10 +286,28 @@ window.__ModuleLoader__.load({
           .filter((occurrence) => occurrence.source === SOURCE)
           .map((occurrence) => occurrence.ref),
       )
+      const now = Date.now()
+      // 当前还在草稿里的 chip：刷新“最后存活时间”。
+      for (const ref of alive) {
+        const record = this.records.get(ref)
+        if (record !== undefined) record.lastAlive = now
+      }
+      // 回收确认死亡、且已消失超过宽限期的记录；宽限期保证 undo/redo 期间不误删。
       for (const [ref, record] of [...this.records.entries()]) {
-        if (alive.has(ref)) continue
         if (record.inflight !== undefined) continue
+        if (alive.has(ref)) continue
+        if (now - (record.lastAlive ?? now) < PRUNE_GRACE_MS) continue
         this.records.delete(ref)
+      }
+      // 硬上限兜底：只清“非存活且非上传中”的最老记录，绝不碰还在草稿里的 chip。
+      if (this.records.size > MAX_RECORDS) {
+        const stale = [...this.records.entries()]
+          .filter(([ref, record]) => !alive.has(ref) && record.inflight === undefined)
+          .sort((a, b) => (a[1].lastAlive ?? 0) - (b[1].lastAlive ?? 0))
+        for (const [ref] of stale) {
+          if (this.records.size <= MAX_RECORDS) break
+          this.records.delete(ref)
+        }
       }
     }
 
@@ -283,6 +361,7 @@ window.__ModuleLoader__.load({
         return true
       }
 
+      let inserted = []
       try {
         let cursor = start
         if (plainText !== '') {
@@ -290,9 +369,7 @@ window.__ModuleLoader__.load({
           input.setDraft?.(next)
           cursor = start + plainText.length
         }
-        const fresh = input.state.getSnapshot()
-        const labels = labelsForFiles(files, fresh)
-        const inserted = []
+        const labels = labelsForFiles(files, input.state.getSnapshot())
         for (const [index, file] of files.entries()) {
           const ref = id()
           const label = labels[index] || fileBase(file)
@@ -304,18 +381,24 @@ window.__ModuleLoader__.load({
             absolutePath: undefined,
             inflight: undefined,
             error: undefined,
+            lastAlive: Date.now(),
           }
           this.records.set(ref, record)
+          inserted.push(ref)
+          // 每张图都重新读一次最新快照：composer 每插入一个 chip 都会让 draftRev +1，
+          // 复用循环外抓的旧 draftRev 会让第二张及以后的插入 CAS 失败（ref 已入表但
+          // chip 没插进去，发送时就会报 “pasted image is no longer available...”）。
+          const snap = input.state.getSnapshot()
           const accepted = input.insertReference(
             { source: SOURCE, ref, label, clipboardText: `[pasted image: ${label}]` },
-            { start: cursor, end: cursor, draftRev: fresh.draftRev },
+            { start: cursor, end: cursor, draftRev: snap.draftRev },
           )
           if (!accepted) throw new Error('The composer changed before pasted images could be inserted')
-          inserted.push(ref)
           cursor += 1
-          const suffix = input.state.getSnapshot().draft.slice(cursor)
+          const after = input.state.getSnapshot()
+          const suffix = after.draft.slice(cursor)
           if (suffix !== '' && !/^\s/u.test(suffix)) {
-            input.setDraft?.(`${input.state.getSnapshot().draft.slice(0, cursor)} ${suffix}`)
+            input.setDraft?.(`${after.draft.slice(0, cursor)} ${suffix}`)
           }
         }
         requestAnimationFrame(() => {
@@ -323,8 +406,9 @@ window.__ModuleLoader__.load({
           target.setSelectionRange(cursor, cursor)
         })
       } catch (error) {
+        // 只回滚/清理本次粘贴产生的引用，避免误删草稿里其它仍在用的 chip 记录
         input.setDraft?.(draftBefore)
-        for (const ref of [...this.records.keys()]) this.records.delete(ref)
+        for (const ref of inserted) this.records.delete(ref)
         notify(input, String(error?.message ?? error))
       }
       return true
