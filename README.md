@@ -1,3 +1,5 @@
+简体中文 | [English](README.en.md)
+
 # dsh-plugins / dsh-vision-skill
 
 **DeepSeek Harness（DSH）标准插件版识图技能** —— 把本仓库 `General_skills/vision-skill`（源自 Qwen 官方动态分辨率方法）包装成 DSH 原生插件。
