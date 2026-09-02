@@ -140,5 +140,4 @@ Per the AGENTS.md red lines, prefer headless self-test after changes. Direct pas
 
 - Generic skill source lives at [General_skills/vision-skill](../../General_skills/vision-skill)
 - Name collisions. The plugin registers skill `vision` at the `runtime` layer. If a same-name skill is also installed in `$DSH_HOME/skills` (user layer) or `.dsh/skills` (project layer), the official priority `project > runtime > user` may shadow this one, so install in only one layer
-- Full version history in [CHANGELOG.md](./CHANGELOG.md)
 - Licensed under MIT

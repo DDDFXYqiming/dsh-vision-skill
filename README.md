@@ -140,5 +140,4 @@ python scripts/vision.py --check --no-api # provider 链路 + PIL + tesseract �
 
 - 通用技能源在 [General_skills/vision-skill](../../General_skills/vision-skill)
 - 同名技能冲突的处理。本插件以 `runtime` 层注册技能名 `vision`。若同时在 `$DSH_HOME/skills`（user 层）或项目 `.dsh/skills`（project 层）装了同名技能，按官方优先级 project > runtime > user 可能互相遮蔽，建议二选一安装
-- 完整更新历史见 [CHANGELOG.md](./CHANGELOG.md)
 - 采用 MIT 授权

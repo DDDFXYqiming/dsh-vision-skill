@@ -14,7 +14,7 @@
   "files": [
     "lib",
     "client.js",
-    "scripts/vision.py",
+    "scripts",
     "templates",
     "cordis.patch.yml",
     "SKILL.md",

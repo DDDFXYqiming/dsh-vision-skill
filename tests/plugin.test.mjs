@@ -38,6 +38,11 @@ function mockCtx({ withAgents = true, withWebServer = false } = {}) {
     },
     credentials: undefined,
     logger: { warn() {}, error() {}, info() {} },
+    __effects: [],
+    effect(fn) {
+      const d = fn()
+      if (typeof d === 'function') ctx.__effects.push(d)
+    },
   }
   if (withWebServer) {
     ctx.inject = (names, callback) => {
@@ -59,30 +64,30 @@ function mockCtx({ withAgents = true, withWebServer = false } = {}) {
 
 test('progressive mode registers only activation tool globally', async () => {
   const { ctx, registered } = mockCtx()
-  const dispose = await apply(ctx, { progressive: true })
+  await apply(ctx, { progressive: true })
   const globalTools = registered.filter((entry) => entry.kind === 'tool')
   assert.equal(globalTools.length, 1)
   assert.equal(globalTools[0].name, 'vision_activate')
   assert.ok(registered.some((entry) => entry.kind === 'skill' && entry.name === 'vision'))
-  dispose()
+  for (const f of ctx.__effects) f()
 })
 
 test('non-progressive fallback registers the full tool set globally', async () => {
   const { ctx, registered } = mockCtx({ withAgents: false })
-  const dispose = await apply(ctx, { progressive: false })
+  await apply(ctx, { progressive: false })
   const names = registered.filter((entry) => entry.kind === 'tool').map((entry) => entry.name)
   assert.ok(names.includes('vision_analyze'))
   assert.ok(names.includes('vision_long_screenshot_ocr'))
   assert.ok(names.includes('vision_clipboard'))
-  dispose()
+  for (const f of ctx.__effects) f()
 })
 
 test('web profile mounts paste route through optional webServer inject', async () => {
   const { ctx, routes } = mockCtx({ withWebServer: true })
-  const dispose = await apply(ctx, { progressive: true, pasteMaxBytes: 10485760 })
+  await apply(ctx, { progressive: true, pasteMaxBytes: 10485760 })
   assert.equal(routes.length, 1)
   assert.equal(routes[0].path, '/dsh-vision-skill/paste')
-  dispose()
+  for (const f of ctx.__effects) f()
 })
 
 
