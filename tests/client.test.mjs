@@ -103,7 +103,7 @@ test('paste inserts a chip reference and serialize returns the model-facing path
   globalThis.fetch = async () => ({
     ok: true,
     status: 201,
-    json: async () => ({ ok: true, value: { absolutePath: 'D:\\AI_Projects\\img.png', filename: 'img.png', bytes: 3 } }),
+    json: async () => ({ ok: true, value: { absolutePath: 'D:\\test-workspaces\\img.png', filename: 'img.png', bytes: 3 } }),
   })
 
   const dispose = exports.apply(ctx)
@@ -237,7 +237,7 @@ test('undo/redo keeps the paste record alive so serialize still works', async ()
   globalThis.fetch = async () => ({
     ok: true,
     status: 201,
-    json: async () => ({ ok: true, value: { absolutePath: 'D:\\AI_Projects\\undo.png', filename: 'undo.png', bytes: 3 } }),
+    json: async () => ({ ok: true, value: { absolutePath: 'D:\\test-workspaces\\undo.png', filename: 'undo.png', bytes: 3 } }),
   })
   const dispose = exports.apply(ctx)
   const file = { name: 'undo.png', type: 'image/png', size: 3 }
@@ -313,7 +313,7 @@ test('multi-image paste re-reads draftRev per image so the composer CAS accepts 
   globalThis.fetch = async () => ({
     ok: true,
     status: 201,
-    json: async () => ({ ok: true, value: { absolutePath: 'D:\\AI_Projects\\a.png', filename: 'a.png', bytes: 3 } }),
+    json: async () => ({ ok: true, value: { absolutePath: 'D:\\test-workspaces\\a.png', filename: 'a.png', bytes: 3 } }),
   })
   const dispose = exports.apply(ctx)
   const files = [
@@ -348,7 +348,7 @@ test('serialize falls back to the sessionStorage mirror for already-uploaded ref
   }
   storage.set(
     'dsh-vision-skill:paste:ref-restored',
-    JSON.stringify({ label: 'old.png', absolutePath: 'D:\\AI_Projects\\old.png' }),
+    JSON.stringify({ label: 'old.png', absolutePath: 'D:\\test-workspaces\\old.png' }),
   )
 
   const registry = { sources: [], registerSource(source) { this.sources.push(source); return () => {} } }
@@ -372,7 +372,7 @@ test('serialize falls back to the sessionStorage mirror for already-uploaded ref
   const text = await source.codec.serialize('ref-restored', new AbortController().signal)
   assert.equal(fetchCalls, 0, 'restored ref must not re-upload')
   assert.ok(text.includes('old.png'))
-  assert.ok(text.includes(JSON.stringify('D:\\AI_Projects\\old.png')))
+  assert.ok(text.includes(JSON.stringify('D:\\test-workspaces\\old.png')))
   assert.equal(source.codec.clipboardText('ref-restored'), '[pasted image: old.png]')
 
   delete globalThis.sessionStorage
