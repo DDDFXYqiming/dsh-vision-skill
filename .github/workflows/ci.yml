@@ -1,0 +1,58 @@
+name: CI
+
+# push / pull_request 上只跑「完全离线」的检查：不读任何 API key、不调用真实 VLM、
+# 不依赖外部数据源。需要密钥或真实模型的评测不属于这里（另走 schedule / 手动触发的工作流）。
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node + Python — offline syntax check & unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          # 与 package.json 的 engines "node >=22.19" 对齐。
+          node-version: '22'
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        # @deepseek-ai/* 只声明在 peerDependencies（且为 "*"），npm 7+ 会自动安装 peer，
+        # 因此一次 `npm install` 即可把 lib/index.js 需要的 dsh-tools / dsh-credentials /
+        # schemastery 全部拉齐，不需要额外步骤。仓库没有 lockfile，这里也不用 `npm ci`。
+        #
+        # pillow 是 scripts/vision.py 里动态 `from PIL import Image` 的硬依赖：
+        # tests/test_vision.py 有 3 个用例（PIL 缩放 / 长截图 OCR 回退 / 主色提取）
+        # 缺少它就会 ModuleNotFoundError，所以必须显式安装。
+        run: |
+          npm install --no-audit --no-fund
+          python -m pip install --disable-pip-version-check pillow
+
+      - name: Syntax check (node --check + py_compile)
+        # 只做语法检查，不执行 scripts/vision.py 的任何 OCR / 网络路径。
+        run: npm run check
+
+      - name: Python unit tests (offline)
+        # tests/test_vision.py 全部离线：provider_chain 用例只读被 mock 过的环境变量，
+        # 长截图 OCR 用例把 tesseract_ocr 与 call_api 都 mock 掉了，
+        # 所以 runner 上不需要安装 tesseract，也没有任何网络请求。
+        run: python -m unittest discover -s tests -v
+
+      - name: Node unit tests (offline)
+        # 两个 .mjs 用例全部使用 mock ctx / mock fetch，不触网。
+        run: node --test tests/plugin.test.mjs tests/client.test.mjs
