@@ -1,48 +1,54 @@
+简体中文 | [English](README.en.md)
+
 # dsh-plugins / dsh-vision-skill
 
-`dsh-vision-skill` packages the `General_skills/vision-skill` image workflow as a native DeepSeek Harness plugin. It uses DSH extension points for runtime skills, tools, credentials, sessions, the web server, and client injection.
+**DeepSeek Harness（DSH）识图技能插件**。它把 `General_skills/vision-skill` 的图像工作流做成 DSH 原生插件，让不能接收图片的纯文本模型也能看图、做 OCR、定位目标。
 
-Since v0.4, pasted images are uploaded by the client to a workspace path before the message is sent. The model receives a path and calls the plugin. The older `pi-ai` image-to-path patch remains available for compatibility.
+自 v0.4 起，粘贴的图片由客户端先上传到工作区路径，再随消息发出，模型拿到路径后调用插件工具。旧的 `pi-ai` 图片转路径补丁保留下来，供仍在使用原附件通道的安装使用。
 
-## Tools
+## 工具
 
-| Name | Purpose |
+| 名称 | 用途 |
 |---|---|
-| `vision` | Runtime skill that exposes the image tools on demand |
-| `vision_analyze` | Analyze a local image in general, OCR, table, code, error, or evidence mode |
-| `vision_ocr` | Extract visible text while preserving its layout |
-| `vision_ground` | Locate a named target and return pixel and normalized boxes |
-| `vision_detect` | Enumerate elements such as UI controls with numbered boxes |
-| `vision_dominant_colors` | Calculate dominant colors locally without a vision API |
-| `vision_long_screenshot_ocr` | OCR a long screenshot in overlapping chunks, using local Tesseract before a VLM fallback |
-| `vision_clipboard` | Save a clipboard image to the workspace for recognition |
-| `vision_activate` | Explicitly expose the tool set when automatic skill activation is unavailable |
+| `vision` | 运行时技能，按需暴露下面的图像工具 |
+| `vision_analyze` | 分析本地图片，支持 general、ocr、table、code、error、evidence 六种模式 |
+| `vision_ocr` | 提取可见文字并保留排版 |
+| `vision_ground` | 定位指定目标，返回像素坐标与归一化坐标 |
+| `vision_detect` | 枚举界面控件等元素，输出带编号的框 |
+| `vision_dominant_colors` | 本地计算主色，不调用视觉 API |
+| `vision_long_screenshot_ocr` | 长截图分块 OCR，先用本地 Tesseract，再由 VLM 兜底 |
+| `vision_clipboard` | 把剪贴板图片保存到工作区，供后续识别 |
+| `vision_activate` | 自动技能激活不可用时，手动暴露工具集 |
 
-`vision_analyze` evidence mode returns `summary`, `ocr_full_text`, reading-order `layout`, semantic `entities` and `relations`, `uncertainty`, and `visual` fields. Results can be cached by image SHA-256, mode, budget, crop, and prompt. The cache has configurable TTL and entry limits.
+`vision_analyze` 的 evidence 模式返回 `summary`、`ocr_full_text`、按阅读顺序排列的 `layout`、语义 `entities` 与 `relations`、`uncertainty` 和 `visual` 字段。识别结果可按图片 SHA-256、模式、预算、裁剪和提示词缓存，缓存有效期与条目上限可配置。
 
-## Request flow
+## 三种送图方式
 
-The image script applies Qwen's dynamic-resolution preprocessing and sends the result to an OpenAI-compatible multimodal endpoint. Grounding accepts either JSON or `<ref><box>` output and converts the model's 0 to 1000 coordinates to pixels. Long screenshots run local `tesseract` first, then use the configured VLM when Tesseract is unavailable.
+| 方式 | 操作 | 适用场景 |
+|---|---|---|
+| 直接给路径 | 在对话里写「识别这张图 <路径>」 | 所有环境 |
+| 剪贴板 | 用 Win+Shift+S 截图后说「识别剪贴板截图」，`vision_clipboard` 会把它存进工作区 | 所有环境 |
+| 直接粘贴 | 粘贴的图片上传到 `.dsh-vision/pasted/`，消息里插入路径文本 | 所有环境 |
 
-The plugin accepts a local image path as text. Direct paths work in every environment. A Windows screenshot can be saved from the clipboard with `vision_clipboard`. In v0.4, pasting into the DSH input uploads the image to `.dsh-vision/pasted/` and inserts a path reference into the message. The message therefore contains text rather than an image block, so text-only DSH adapters can still call the vision tools.
+图片工具的参数是路径，图片字节不会进入消息。路径必须位于会话工作区、DSH 附件目录或配置的 `allowedDirs` 之内。
 
-## Installation
+## 安装
 
-For a normal profile installation:
+常规 profile 安装：
 
 ```powershell
 dsh plugin --profile web add github:DDDFXYqiming/dsh-vision-skill
 ```
 
-For local development, add a link to the web profile and run `pnpm install` there:
+本地开发时，把链接加进 web profile 的依赖并执行 `pnpm install`：
 
 ```powershell
 git clone https://github.com/DDDFXYqiming/dsh-vision-skill.git
 cd dsh-vision-skill
-# add dsh-vision-skill: link:<absolute-path> to the profile dependencies
+# 在 profile 依赖里加入 dsh-vision-skill: link:<绝对路径>
 ```
 
-The bundled `cordis.patch.yml` contributes `id: vision-skill`. When overriding it in a profile, use one complete bare entry and do not insert a second entry with the same id. Patch replacement is line-based, so include every config field that must remain active.
+插件自带的 `cordis.patch.yml` 提供 `id: vision-skill` 条目。覆盖配置时写一条完整的裸条目，不要另外插入同 id 的第二条；补丁替换按行进行，需要保留的每个配置字段都要写上。
 
 ```yaml
 - id: vision-skill
@@ -62,37 +68,29 @@ The bundled `cordis.patch.yml` contributes `id: vision-skill`. When overriding i
     cacheMaxEntries: 200
 ```
 
-`credential` refers to a DSH credential and is preferred over an inline `apiKey`. Provider entries are tried in order; a 429, 5xx, or network error can move the request to the next entry. Store the credential in `$DSH_HOME/.credentials.yaml`.
+`credential` 指向 DSH 凭据，优先于内联 `apiKey`。provider 按顺序尝试，遇到 429、5xx 或网络错误会转到下一条。凭据存放在 `$DSH_HOME/.credentials.yaml`。
 
-The main options include `timeoutMs` with a default of 180 seconds, `concurrency` with a default of 2, `allowedDirs` for path fencing, and the cache controls above. `progressive: false` registers the full tool set globally instead of waiting for the runtime skill.
+主要选项包括 `timeoutMs`（默认 180 秒）、`concurrency`（默认 2）、用于路径限制的 `allowedDirs`，以及上面的缓存开关。`progressive: false` 会把完整工具集注册到全局，跳过运行时技能这一层。
 
-## Adapter support
+## 适配器支持
 
-| Adapter or scene | Pasted image | Notes |
+| 适配器或场景 | 粘贴图片 | 说明 |
 |---|---|---|
-| `dsh-llm-deepseek` | Works without a patch | Recent DSH versions include image-to-path conversion. |
-| `dsh-llm-pi-ai` | Works through v0.4 paste-to-path | The older vendor patch is retained for installations that still use the original attachment path. |
-| Native multimodal model | Image is sent directly | The model handles the image without conversion. |
+| `dsh-llm-deepseek` | 可直接使用 | 较新的 DSH 版本内置图片转路径 |
+| `dsh-llm-pi-ai` | 通过 v0.4 的 paste-to-path 使用 | 旧厂商补丁保留给仍在使用原附件通道的安装 |
+| 原生多模态模型 | 直接发送图片 | 模型自行处理图片 |
 
-The compatibility patch is optional and machine-specific. After a DSH upgrade, rerun it only when the old attachment behavior is required, then restart the host.
+兼容补丁按机器调整，目标是 profile 内的厂商包 `dsh-llm-pi-ai`。DSH 升级后，只有在需要旧附件行为时才重新执行，然后重启宿主。
 
 ```powershell
 powershell -File scripts\reapply-pi-ai-vision-patch.ps1
 ```
 
-The patch edits the vendor `dsh-llm-pi-ai` package and contains a local profile path. Change that path before using it on another machine. It is excluded from the package file list.
+## 运行要求
 
-## Tests and dependencies
+插件需要带 DSH 的 Node.js（`@deepseek-ai/dsh-tools`、`@deepseek-ai/dsh-credentials`、`@deepseek-ai/schemastery`）、装有 Pillow 的 Python 3、用于本地 OCR 快路径的 Tesseract，以及所选 OpenAI 兼容视觉模型的凭据。
 
-```bash
-npm run check
-python -m unittest discover -s tests -v
-python scripts/vision.py --check --no-api
-```
-
-The plugin needs Node.js with DSH (`@deepseek-ai/dsh-tools`, `@deepseek-ai/dsh-credentials`, and `@deepseek-ai/schemastery`), Python 3 with Pillow, Tesseract for the local OCR fast path, and a credential for the chosen OpenAI-compatible vision model.
-
-## Examples
+## 示例
 
 ```text
 识别这张图 <路径>        → vision_analyze
@@ -104,15 +102,14 @@ OCR 这张图 <路径>        → vision_ocr
 识别剪贴板截图          → vision_clipboard
 ```
 
-All image tools receive a path, not the image bytes. The path must resolve inside the session workspace, the DSH attachment directory, or a configured `allowedDirs` entry.
+## 更多
 
-## Related
+- [开发与自检](docs/development.md) 说明测试命令与兼容补丁的重放方式
+- [设计说明](docs/design.md) 说明识别方法、工具暴露方式与目录结构
+- `SKILL.md` 是 DSH 加载的运行时说明
+- `templates/.env.example` 记录独立脚本的配置
+- 运行时技能名是 `vision`。同名技能若同时出现在项目层或用户层，DSH 按 `project > runtime > user` 的优先级解析，因此只装一层
 
-- `SKILL.md` contains the runtime instructions loaded by DSH.
-- `templates/.env.example` documents standalone script configuration.
-- `General_skills/vision-skill` contains the shared image workflow.
-- The runtime skill name is `vision`. Avoid installing another `vision` skill in a project or user scope, because DSH resolves project, runtime, and user skills by precedence.
-
-## License
+## 许可
 
 MIT
