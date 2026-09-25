@@ -3,4 +3,4 @@
 # 用户可在 profile 自己的 cordis.patch.yml 中按 id 覆盖 config（后写者胜，整行替换 config）。
 - insert:
     - id: vision-skill
-      name: 'dsh-vision-skill'
+      name: '@dsh-external/dsh-vision-skill'

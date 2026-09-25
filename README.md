@@ -45,7 +45,7 @@ dsh plugin --profile web add github:DDDFXYqiming/dsh-vision-skill
 ```powershell
 git clone https://github.com/DDDFXYqiming/dsh-vision-skill.git
 cd dsh-vision-skill
-# 在 profile 依赖里加入 dsh-vision-skill: link:<绝对路径>
+# 在 profile 依赖里加入 '@dsh-external/dsh-vision-skill': link:<绝对路径>
 ```
 
 插件自带的 `cordis.patch.yml` 提供 `id: vision-skill` 条目。覆盖配置时写一条完整的裸条目，不要另外插入同 id 的第二条；补丁替换按行进行，需要保留的每个配置字段都要写上。

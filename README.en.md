@@ -45,7 +45,7 @@ For local development, add a link to the web profile dependencies and run `pnpm 
 ```powershell
 git clone https://github.com/DDDFXYqiming/dsh-vision-skill.git
 cd dsh-vision-skill
-# add dsh-vision-skill: link:<absolute-path> to the profile dependencies
+# add '@dsh-external/dsh-vision-skill': link:<absolute-path> to the profile dependencies
 ```
 
 The bundled `cordis.patch.yml` contributes `id: vision-skill`. When overriding it in a profile, use one complete bare entry and do not insert a second entry with the same id. Patch replacement is line-based, so include every config field that must remain active.

@@ -1,6 +1,6 @@
 {
-  "name": "dsh-vision-skill",
-  "version": "0.4.4",
+  "name": "@dsh-external/dsh-vision-skill",
+  "version": "0.5.0",
   "description": "DSH standard vision skill: Qwen dynamic-resolution preprocessing + OpenAI-compatible VLM chain with failover/429 backoff, structured evidence mode, local tesseract-first long-screenshot OCR, paste-to-path (no framework patch). 8 tools + runtime skill.",
   "type": "module",
   "main": "lib/index.js",

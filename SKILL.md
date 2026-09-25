@@ -19,7 +19,7 @@ description: 识别图片内容。当用户发送图片、截图、报错图，�
 
 ## DeepSeek Harness（DSH）插件模式
 
-本技能已打包为标准 DSH 插件 `dsh-vision-skill`（工具 + 运行时 skill，**无需任何框架补丁**）：
+本技能已打包为标准 DSH 插件 `@dsh-external/dsh-vision-skill`（工具 + 运行时 skill，**无需任何框架补丁**）：
 
 - **`vision_analyze`**：识别指定路径的本地图片（`image_path` 必填；可选 `mode`/`prompt`/`crop`/`budget`）。`mode=evidence` 返回结构化证据 JSON（summary / ocr_full_text / layout 阅读顺序 / semantics 实体关系 / uncertainty）；多 provider 自动 failover，429 自动退避
 - **`vision_ocr`**：独立 OCR 工具——提取图片中全部可见文字，保持原始排版（`image_path` 必填；可选 `prompt`/`crop`/`budget`）
