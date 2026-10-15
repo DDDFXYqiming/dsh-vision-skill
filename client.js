@@ -9,8 +9,6 @@
 //
 // 兼容性：
 //   - 同时注册 legacy `slash` 与新版 `inputTriggers` 两个 reference 注册表；
-//   - 若 input.insertReference / 注册表不可用，自动回退为旧行为（立即上传 +
-//     直接插入路径文本），保证粘贴功能永不失效；
 //   - 不新增工具、不改 agent 目录，anchored-standard 首请求不受影响。
 
 window.__ModuleLoader__.load({

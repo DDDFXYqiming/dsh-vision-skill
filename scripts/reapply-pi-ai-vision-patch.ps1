@@ -1,11 +1,9 @@
 # reapply-pi-ai-vision-patch.ps1
 # [pi-ai vision + zen-ua patch] 幂等重打 dsh-llm-pi-ai 的两个补丁：
 #   A) zen-ua patch：requestHeaders 放行用户显式配置的 User-Agent
-#      （OpenCode Zen 免费层只认 opencode/<ver> UA，否则 429 FreeUsageLimitError）
 #   B) 图片→路径占位符：纯文本模型（catalog input 不含 image）贴图不再拒绝
 #      （UNSUPPORTED_CONTENT），image 块转成路径占位符文本，模型经 vision skill 读图
 #      ——与 dsh-llm-deepseek 的 blockToText 补丁对齐。
-# 用途：dsh 包升级/重装（覆盖 node_modules）后重跑恢复。运行后需重启 dsh web 宿主。
 # 路径：link 依赖目标已从 .bun/install/global 迁移到 .dsh/profiles（shared store）。
 
 $ErrorActionPreference = 'Stop'
